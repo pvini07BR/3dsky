@@ -1,0 +1,8 @@
+.vscode/
+build/
+romfs/
+3dsky.3dsx
+3dsky.elf
+3dsky.smdh
+backup.c
+example.c
