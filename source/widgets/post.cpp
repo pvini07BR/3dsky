@@ -7,14 +7,14 @@
 const float display_name_scale_factor = 1.5f;
 const float handle_scale_factor = 0.8f;
 
-std::string Post::wrap_text(std::string text)
+std::string wrap_text(C2D_TextBuf textBuf, std::string text, float text_scale)
 {
     std::string wrapped_text = "";
     C2D_Text tempText;
     for (size_t i = 0; i < text.size(); i++) {
-        wrapped_text += this->text[i];
+        wrapped_text += text[i];
 
-        C2D_TextParse(&tempText, this->textBuf, wrapped_text.c_str());
+        C2D_TextParse(&tempText, textBuf, wrapped_text.c_str());
         C2D_TextOptimize(&tempText);
 
         float t_width;
@@ -28,13 +28,16 @@ std::string Post::wrap_text(std::string text)
             }
         }
 
-        C2D_TextBufClear(this->textBuf);
+        C2D_TextBufClear(textBuf);
     }
 
     return wrapped_text;
 }
 
-Post::Post(std::string text, std::string handle, std::string display_name, float text_scale) {
+Post::Post(C2D_TextBuf textBuf, std::string text, std::string handle, std::string display_name, float text_scale) {
+    // NOTE: The text buffer will be used here only for getting the proper post height.
+
+    this->visible = false;
     this->text = text;
     this->author_handle = handle;
     this->author_display_name = display_name;
@@ -45,15 +48,15 @@ Post::Post(std::string text, std::string handle, std::string display_name, float
 
     this->text_scale = text_scale;
     this->height = 0.0f;
-    this->textBuf = C2D_TextBufNew(MAX_POST_CHARACTERS+1);
+    this->wrapped_text = wrap_text(textBuf, text, text_scale);
 
-    C2D_TextParse(&this->c2d_text, this->textBuf, wrap_text(text).c_str());
+    C2D_TextParse(&this->c2d_text, textBuf, wrapped_text.c_str());
     C2D_TextOptimize(&this->c2d_text);
 
-    C2D_TextParse(&this->c2d_handle_text, this->textBuf, this->author_handle.c_str());
+    C2D_TextParse(&this->c2d_handle_text, textBuf, this->author_handle.c_str());
     C2D_TextOptimize(&this->c2d_handle_text);
 
-    C2D_TextParse(&this->c2d_author_display_text, this->textBuf, this->author_display_name.c_str());
+    C2D_TextParse(&this->c2d_author_display_text, textBuf, this->author_display_name.c_str());
     C2D_TextOptimize(&this->c2d_author_display_text);
 
     float text_height;
@@ -63,21 +66,32 @@ Post::Post(std::string text, std::string handle, std::string display_name, float
     C2D_TextGetDimensions(&this->c2d_handle_text, this->text_scale * handle_scale_factor, this->text_scale * handle_scale_factor, nullptr, &this->author_handle_height);
 
     this->height = text_height + author_display_height;
+
+    C2D_TextBufClear(textBuf);
 }
 
-Post::~Post() {
-    printf("Post destructed.\n");
-    C2D_TextBufDelete(textBuf);
-}
+Post::~Post() {}
 
-void Post::draw(float x, float y) {
+void Post::draw(float x, float y, C2D_TextBuf textBuf) {
     u32 lineColor = C2D_Color32(47, 64, 81, 255);
 
     //C2D_DrawText(&c2d_text, C2D_WithColor | C2D_WordWrap, x, y, 0.0, this->text_scale, this->text_scale, C2D_Color32(255, 255, 255, 255), (float)BOTTOM_SCREEN_WIDTH);
-    C2D_DrawText(&this->c2d_author_display_text, C2D_WithColor, x, y, 0.0, this->text_scale * display_name_scale_factor, this->text_scale * display_name_scale_factor, C2D_Color32(255, 255, 255, 255));
-    C2D_DrawText(&this->c2d_handle_text, C2D_WithColor, x + 5.0f + this->author_display_width, y + (author_handle_height/2.0), 0.0, this->text_scale * handle_scale_factor, this->text_scale * handle_scale_factor, C2D_Color32(128, 128, 128, 255));
-    C2D_DrawText(&c2d_text, C2D_WithColor, x, y + this->author_display_height, 0.0, this->text_scale, this->text_scale, C2D_Color32(255, 255, 255, 255));
-    
+    if (this->visible) {
+        C2D_TextBufClear(textBuf);
+
+        C2D_TextParse(&this->c2d_text, textBuf, wrapped_text.c_str());
+        C2D_TextOptimize(&this->c2d_text);
+
+        C2D_TextParse(&this->c2d_handle_text, textBuf, this->author_handle.c_str());
+        C2D_TextOptimize(&this->c2d_handle_text);
+
+        C2D_TextParse(&this->c2d_author_display_text, textBuf, this->author_display_name.c_str());
+        C2D_TextOptimize(&this->c2d_author_display_text);
+
+        C2D_DrawText(&this->c2d_author_display_text, C2D_WithColor, x, y, 0.0, this->text_scale * display_name_scale_factor, this->text_scale * display_name_scale_factor, C2D_Color32(255, 255, 255, 255));
+        C2D_DrawText(&this->c2d_handle_text, C2D_WithColor, x + 5.0f + this->author_display_width, y + (author_handle_height/2.0), 0.0, this->text_scale * handle_scale_factor, this->text_scale * handle_scale_factor, C2D_Color32(128, 128, 128, 255));
+        C2D_DrawText(&c2d_text, C2D_WithColor, x, y + this->author_display_height, 0.0, this->text_scale, this->text_scale, C2D_Color32(255, 255, 255, 255));
+    }
     C2D_DrawLine(x, y, lineColor, x + BOTTOM_SCREEN_WIDTH, y, lineColor, 1.0f, 0.0f);
     C2D_DrawLine(x, y+this->height, lineColor, x + BOTTOM_SCREEN_WIDTH, y+this->height, lineColor, 1.0f, 0.0f);
 }

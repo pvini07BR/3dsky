@@ -7,7 +7,7 @@
 
 class Post {
 public:
-    Post(std::string text, std::string handle, std::string display_name, float text_scale);
+    Post(C2D_TextBuf textBuf, std::string text, std::string handle, std::string display_name, float text_scale);
     ~Post();
 
     /*
@@ -30,9 +30,10 @@ public:
     Post& operator=(const Post&) = delete;
     */
 
-    void draw(float x, float y);
+    void draw(float x, float y, C2D_TextBuf textBuf);
 
     std::string text;
+    std::string wrapped_text;
     std::string author_display_name;
     std::string author_handle;
 
@@ -43,11 +44,9 @@ public:
 
     float height;
     float text_scale;
+    bool visible;
 private:
     C2D_Text c2d_text;
     C2D_Text c2d_handle_text;
     C2D_Text c2d_author_display_text;
-    C2D_TextBuf textBuf;
-
-    std::string wrap_text(std::string text);
 };

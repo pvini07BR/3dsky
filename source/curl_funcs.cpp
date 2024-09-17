@@ -27,7 +27,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 
 void get_posts(void *postFetching)
 {
-    CURLcode statuscode;
+    CURLcode statuscode = CURLcode::CURL_LAST;
 	struct curl_slist *slist1 = NULL;
 	slist1 = curl_slist_append(slist1, "Accept: application/json");
   	slist1 = curl_slist_append(slist1, "Authorization: Bearer <TOKEN>");
@@ -65,9 +65,10 @@ void get_posts(void *postFetching)
 				json_t *post_author = json_object_get(post_obj, "author");
 				json_t *post_record = json_object_get(post_obj, "record");
 
-				svcSignalEvent(pf->eventHandle);
+				LightEvent_Signal(&pf->eventHandle);
 
 				static_cast<std::vector<Post>*>(pf->posts)->emplace_back(
+					pf->textBuf,
 					json_string_value(json_object_get(post_record, "text")),
 					json_string_value(json_object_get(post_author, "handle")),
 					json_string_value(json_object_get(post_author, "displayName")),
@@ -86,13 +87,4 @@ void get_posts(void *postFetching)
 	hnd = NULL;
 	curl_slist_free_all(slist1);
 	slist1 = NULL;
-}
-
-void threading_test(void *arg) {
-	int i = 0;
-	while (i < 5)
-	{
-		printf("thread%d says %d\n", (int)arg, i++);
-		svcSleepThread(1000000ULL * (u32)arg);
-	}
 }

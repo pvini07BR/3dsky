@@ -44,8 +44,9 @@ int main() {
     Feed feed = Feed(0.5f);
 
     PostFetching pf;
+    pf.textBuf = feed.textBuf;
     pf.posts = &feed.posts;
-	svcCreateEvent(&pf.eventHandle, ResetType::RESET_ONESHOT);
+    LightEvent_Init(&pf.eventHandle, ResetType::RESET_ONESHOT);
 
     s32 prio = 0;
     svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
@@ -172,8 +173,8 @@ int main() {
 		C3D_FrameEnd(0);
 
         if (!finishedLoading && frames == 3) {
-            svcWaitSynchronization(pf.eventHandle, U64_MAX);
-            svcClearEvent(pf.eventHandle);
+            LightEvent_Wait(&pf.eventHandle);
+            LightEvent_Clear(&pf.eventHandle);
             finishedLoading = true;
         }
 
@@ -181,7 +182,7 @@ int main() {
     }
 
     threadJoin(thread, U64_MAX);
-    svcCloseHandle(pf.eventHandle);
+    LightEvent_Clear(&pf.eventHandle);
 
     threadFree(thread);
     

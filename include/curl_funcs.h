@@ -11,8 +11,9 @@ struct MemoryStruct {
 
 struct PostFetching {
 	// arguments
+	C2D_TextBuf textBuf;
 	std::vector<Post> *posts;
-	Handle eventHandle;
+	LightEvent eventHandle;
 
 	// returned values
 	std::string cursor;

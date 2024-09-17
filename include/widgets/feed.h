@@ -21,6 +21,7 @@ public:
     float get_total_height();
 
     std::vector<Post> posts;
+    C2D_TextBuf textBuf;
 private:
     float text_scale;
 };
