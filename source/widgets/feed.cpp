@@ -1,10 +1,9 @@
 #include "widgets/feed.h"
 #include <citro2d.h>
 #include "defines.h"
-#include <iostream>
 
 Feed::Feed(float text_scale) {
-    this->textBuf = C2D_TextBufNew(4096);
+    this->textBuf = C2D_TextBufNew(8192);
     this->posts = std::vector<Post>();
     this->reserve_more(50);
     this->text_scale = text_scale;
@@ -50,8 +49,6 @@ void Feed::draw(float h_displacement, float scrollY) {
 
         add += this->posts[i].height;
     }
-
-    std::cout << C2D_TextBufGetNumGlyphs(this->textBuf) << '\n';
 }
 
 void Feed::remove_post(size_t index) {

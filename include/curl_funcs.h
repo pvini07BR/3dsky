@@ -11,11 +11,12 @@ struct MemoryStruct {
 
 struct PostFetching {
 	// arguments
+	std::string at_uri;
 	C2D_TextBuf textBuf;
 	std::vector<Post> *posts;
 	LightEvent eventHandle;
 
-	// returned values
+	// this is both a input and output
 	std::string cursor;
 };
 

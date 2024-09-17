@@ -12,7 +12,7 @@
 #include "curl_funcs.h"
 #include "widgets/feed.h"
 
-bool toggleConsole = true;
+bool toggleConsole = false;
 
 int main() {
     gfxInitDefault();
@@ -44,13 +44,20 @@ int main() {
     Feed feed = Feed(0.5f);
 
     PostFetching pf;
+    pf.at_uri = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
+    pf.cursor = "";
+
     pf.textBuf = feed.textBuf;
     pf.posts = &feed.posts;
+    /*
     LightEvent_Init(&pf.eventHandle, ResetType::RESET_ONESHOT);
 
     s32 prio = 0;
     svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
     Thread thread = threadCreate(get_posts, (void*)&pf, 4 * 1024, prio-1, -2, false);
+    */
+
+    get_posts(&pf);
 
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
@@ -74,8 +81,6 @@ int main() {
     C2D_Text loadingText;
     C2D_TextParse(&loadingText, textBuf, "Loading posts...");
     C2D_TextOptimize(&loadingText);
-
-    bool finishedLoading = false;
     
     int16_t deltaTouch = 0;
     int frames = 0;
@@ -127,12 +132,13 @@ int main() {
             }
 
             if (scrollY < -feed.get_total_height() + SCREEN_HEIGHT) {
-                if (finishedLoading) {
-                    printf("Loading more posts...\n");
-                    finishedLoading = false;
-                }
+                scrollVelY = 0.0f;
+                printf("Loading more posts...\n");
+                feed.reserve_more(50);
+                printf("%d\n", feed.posts.capacity());
+                get_posts(&pf);
+
                 if (scrollY < (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f) {
-                    scrollVelY = 0.0f;
                     scrollY = (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f;
                 }
             }
@@ -155,10 +161,6 @@ int main() {
 
             feed.draw(SCREEN_TOP_BOTTOM_DIFF, scrollY + SCREEN_HEIGHT);
 
-            if (!finishedLoading) {
-                C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter | C2D_AtBaseline , (float)TOP_SCREEN_WIDTH/2.0f, (float)SCREEN_HEIGHT/2.0f, 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
-            }
-
             C2D_DrawLine(SCREEN_TOP_BOTTOM_DIFF-0.5, 0.0, lineColor, SCREEN_TOP_BOTTOM_DIFF-0.5, SCREEN_HEIGHT, lineColor, 1.0, 0.0);
             C2D_DrawLine(SCREEN_TOP_BOTTOM_DIFF + BOTTOM_SCREEN_WIDTH, 0.0, lineColor, SCREEN_TOP_BOTTOM_DIFF + BOTTOM_SCREEN_WIDTH, SCREEN_HEIGHT, lineColor, 1.0, 0.0);
         }
@@ -170,25 +172,15 @@ int main() {
 
         feed.draw(0.0f, scrollY);
 
-        if (!finishedLoading) {
-            C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter | C2D_AtBaseline , (float)BOTTOM_SCREEN_WIDTH/2.0f, (float)SCREEN_HEIGHT/2.0f, 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
-        }
-
 		C3D_FrameEnd(0);
-
-        if (!finishedLoading && frames == 3) {
-            LightEvent_Wait(&pf.eventHandle);
-            LightEvent_Clear(&pf.eventHandle);
-            finishedLoading = true;
-        }
 
         frames++;
     }
 
-    threadJoin(thread, U64_MAX);
-    LightEvent_Clear(&pf.eventHandle);
+    //threadJoin(thread, U64_MAX);
+    //LightEvent_Clear(&pf.eventHandle);
 
-    threadFree(thread);
+    //threadFree(thread);
     
     C2D_Fini();
 	C3D_Fini();

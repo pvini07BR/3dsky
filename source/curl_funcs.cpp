@@ -27,6 +27,12 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 
 void get_posts(void *postFetching)
 {
+	PostFetching *pf = static_cast<PostFetching*>(postFetching);
+	std::string url = "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed\?feed=" + pf->at_uri + "&limit=50";
+	if (!pf->cursor.empty()) {
+		url += "&cursor=" + pf->cursor;
+	}
+
     CURLcode statuscode = CURLcode::CURL_LAST;
 	struct curl_slist *slist1 = NULL;
 	slist1 = curl_slist_append(slist1, "Accept: application/json");
@@ -38,7 +44,7 @@ void get_posts(void *postFetching)
 
     CURL *hnd = curl_easy_init();
 	if (hnd) {
-		curl_easy_setopt(hnd, CURLOPT_URL, "https://public.api.bsky.app/xrpc/app.bsky.feed.getFeed?feed=at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot");
+		curl_easy_setopt(hnd, CURLOPT_URL, url.c_str());
 		curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
 		curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 		curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
@@ -54,7 +60,6 @@ void get_posts(void *postFetching)
 		if (!root) {
 			fprintf(stderr, "Error parsing string at line %d: %s\n", error.line, error.text);
 		} else {
-			PostFetching *pf = static_cast<PostFetching*>(postFetching);
 			pf->cursor = json_string_value(json_object_get(root, "cursor"));
 
 			json_t *posts_obj = json_object_get(root, "feed");
@@ -65,8 +70,8 @@ void get_posts(void *postFetching)
 				json_t *post_author = json_object_get(post_obj, "author");
 				json_t *post_record = json_object_get(post_obj, "record");
 
-				LightEvent_Signal(&pf->eventHandle);
-
+				//LightEvent_Signal(&pf->eventHandle);
+				
 				static_cast<std::vector<Post>*>(pf->posts)->emplace_back(
 					pf->textBuf,
 					json_string_value(json_object_get(post_record, "text")),
