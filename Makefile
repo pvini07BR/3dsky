@@ -32,19 +32,20 @@ include $(DEVKITARM)/3ds_rules
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
 
-APP_TITLE		:= 3DSky
+ICON := gfx/3dsky-icon.png
+APP_TITLE := 3DSky
 APP_DESCRIPTION := An BlueSky client for the Nintendo 3DS
-APP_AUTHOR 		:= pvini07BR
+APP_AUTHOR := pvini07BR
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source source/widgets source/scenes
+SOURCES		:=	source source/widgets
 DATA		:=	data
-INCLUDES	:=	include include/widgets include/textflow
+INCLUDES	:=	include
 GRAPHICS	:=	gfx
-#GFXBUILD	:=	$(BUILD)
-ROMFS		:=	romfs
-GFXBUILD	:=	$(ROMFS)/gfx
+GFXBUILD	:=	$(BUILD)
+#ROMFS		:=	romfs
+#GFXBUILD	:=	$(ROMFS)/gfx
 
 #---------------------------------------------------------------------------------
 # options for code generation
@@ -233,11 +234,11 @@ $(OUTPUT).elf	:	$(OFILES)
 endif
 #---------------------------------------------------------------------------------------
 
-run-citra-qt:
-	make && /c/Users/pvini/Documentos/Citra/citra-qt.exe $(OUTPUT).3dsx
+citra-qt:
+	make && citra-qt $(TARGET).3dsx
 
-run-citra:
-	make && /c/Users/pvini/Documentos/Citra/citra.exe $(OUTPUT).3dsx
+citra:
+	make && citra $(TARGET).3dsx
 
-run-3dslink:
-	make && 3dslink --address 192.168.15.196 $(OUTPUT).3dsx
+3dslink:
+	make && 3dslink --address 192.168.15.196 $(TARGET).3dsx
