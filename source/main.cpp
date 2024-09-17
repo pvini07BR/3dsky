@@ -12,7 +12,7 @@
 #include "curl_funcs.h"
 #include "widgets/feed.h"
 
-bool toggleConsole = false;
+bool toggleConsole = true;
 
 int main() {
     gfxInitDefault();
@@ -127,6 +127,10 @@ int main() {
             }
 
             if (scrollY < -feed.get_total_height() + SCREEN_HEIGHT) {
+                if (finishedLoading) {
+                    printf("Loading more posts...\n");
+                    finishedLoading = false;
+                }
                 if (scrollY < (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f) {
                     scrollVelY = 0.0f;
                     scrollY = (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f;
