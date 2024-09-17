@@ -4,11 +4,15 @@
 
 Feed::Feed(float text_scale) {
     this->posts = std::vector<Post>();
-    this->posts.reserve(50);
+    this->reserve_more(50);
     this->text_scale = text_scale;
 }
 
 Feed::~Feed() { this->posts.clear(); }
+
+void Feed::reserve_more(size_t amount) {
+    this->posts.reserve(this->posts.capacity() + amount);
+}
 
 void Feed::draw(float h_displacement, float scrollY) {
     float add = 0.0f;

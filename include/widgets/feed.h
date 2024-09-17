@@ -16,8 +16,7 @@ public:
     Feed& operator=(Feed&&) noexcept = default;
     
     void draw(float h_displacement, float scrollY);
-    void add_post(std::string text);
-    void add_post(Post post);
+    void reserve_more(size_t amount);
     void remove_post(size_t index);
     float get_total_height();
 

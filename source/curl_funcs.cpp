@@ -54,6 +54,9 @@ void get_posts(void *postFetching)
 		if (!root) {
 			fprintf(stderr, "Error parsing string at line %d: %s\n", error.line, error.text);
 		} else {
+			PostFetching *pf = static_cast<PostFetching*>(postFetching);
+			pf->cursor = json_string_value(json_object_get(root, "cursor"));
+
 			json_t *posts_obj = json_object_get(root, "feed");
 			for (size_t i = 0; i < json_array_size(posts_obj); i++) {
 				json_t *obj = json_array_get(posts_obj, i);
@@ -62,7 +65,6 @@ void get_posts(void *postFetching)
 				json_t *post_author = json_object_get(post_obj, "author");
 				json_t *post_record = json_object_get(post_obj, "record");
 
-				PostFetching *pf = static_cast<PostFetching*>(postFetching);
 				svcSignalEvent(pf->eventHandle);
 
 				static_cast<std::vector<Post>*>(pf->posts)->emplace_back(
@@ -84,8 +86,6 @@ void get_posts(void *postFetching)
 	hnd = NULL;
 	curl_slist_free_all(slist1);
 	slist1 = NULL;
-
-	//svcSignalEvent(threadRequest);
 }
 
 void threading_test(void *arg) {

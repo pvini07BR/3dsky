@@ -2,6 +2,7 @@
 
 #include "widgets/post.h"
 #include <vector>
+#include <string>
 
 struct MemoryStruct {
 	char *memory;
@@ -9,8 +10,12 @@ struct MemoryStruct {
 };
 
 struct PostFetching {
+	// arguments
 	std::vector<Post> *posts;
 	Handle eventHandle;
+
+	// returned values
+	std::string cursor;
 };
 
 void get_posts(void *posts);

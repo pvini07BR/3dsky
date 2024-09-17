@@ -59,6 +59,7 @@ int main() {
     C3D_RenderTarget* bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
     float scrollY = 0.0f;
+    float scrollVelY = 0.0f;
     const float SCROLL_SPEED = 5.0f;
 
     const u32 bgColor = C2D_Color32(22, 30, 39, 255);
@@ -68,14 +69,14 @@ int main() {
     prevTouch.px = 0;
     prevTouch.py = 0;
 
-    C2D_TextBuf textBuf = C2D_TextBufNew(17);
-
+    C2D_TextBuf textBuf = C2D_TextBufNew(15);
     C2D_Text loadingText;
     C2D_TextParse(&loadingText, textBuf, "Loading posts...");
     C2D_TextOptimize(&loadingText);
 
     bool finishedLoading = false;
     
+    int16_t deltaTouch = 0;
     int frames = 0;
     while (aptMainLoop()) {
         hidScanInput();
@@ -86,13 +87,22 @@ int main() {
 
         if (touchPos.px != 0 && touchPos.py != 0) {
             if (prevTouch.px != 0 && prevTouch.py != 0) {
-                int16_t deltaTouch = (int16_t)touchPos.py - (int16_t)prevTouch.py;
+                deltaTouch = (int16_t)touchPos.py - (int16_t)prevTouch.py;
                 scrollY += deltaTouch;
             }
             hidTouchRead(&prevTouch);
         } else {
             prevTouch.px = 0;
             prevTouch.py = 0;
+            if (deltaTouch != 0) {
+                scrollVelY = deltaTouch;
+                deltaTouch = 0;
+            }
+            if (scrollVelY > 0.0f)
+                scrollVelY -= 0.5f;
+            if (scrollVelY < 0.0f)
+                scrollVelY += 0.5f;
+            scrollY += scrollVelY;
         }
 
         if (feed.get_total_height() > SCREEN_HEIGHT) {
@@ -111,11 +121,15 @@ int main() {
             }
             
             if (scrollY > 0.0) {
+                scrollVelY = 0.0f;
                 scrollY = 0.0;
             }
 
             if (scrollY < -feed.get_total_height() + SCREEN_HEIGHT) {
-                scrollY = -feed.get_total_height() + SCREEN_HEIGHT;
+                if (scrollY < (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f) {
+                    scrollVelY = 0.0f;
+                    scrollY = (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f;
+                }
             }
         }
 
@@ -158,9 +172,9 @@ int main() {
 		C3D_FrameEnd(0);
 
         if (!finishedLoading && frames == 3) {
-           svcWaitSynchronization(pf.eventHandle, U64_MAX);
-           svcClearEvent(pf.eventHandle);
-           finishedLoading = true;
+            svcWaitSynchronization(pf.eventHandle, U64_MAX);
+            svcClearEvent(pf.eventHandle);
+            finishedLoading = true;
         }
 
         frames++;
@@ -168,6 +182,8 @@ int main() {
 
     threadJoin(thread, U64_MAX);
     svcCloseHandle(pf.eventHandle);
+
+    threadFree(thread);
     
     C2D_Fini();
 	C3D_Fini();

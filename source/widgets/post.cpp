@@ -70,17 +70,6 @@ Post::~Post() {
     C2D_TextBufDelete(textBuf);
 }
 
-Post::Post(Post&& other) noexcept
-    : text(std::move(other.text)),
-      text_scale(other.text_scale),
-      height(other.height),
-      c2d_text(other.c2d_text),
-      author_handle(other.author_handle),
-      author_display_name(other.author_display_name),
-      textBuf(other.textBuf) {
-    other.textBuf = nullptr;
-}
-
 void Post::draw(float x, float y) {
     u32 lineColor = C2D_Color32(47, 64, 81, 255);
 
@@ -92,3 +81,16 @@ void Post::draw(float x, float y) {
     C2D_DrawLine(x, y, lineColor, x + BOTTOM_SCREEN_WIDTH, y, lineColor, 1.0f, 0.0f);
     C2D_DrawLine(x, y+this->height, lineColor, x + BOTTOM_SCREEN_WIDTH, y+this->height, lineColor, 1.0f, 0.0f);
 }
+
+/*
+Post::Post(Post&& other) noexcept
+    : text(std::move(other.text)),
+      text_scale(other.text_scale),
+      height(other.height),
+      c2d_text(other.c2d_text),
+      author_handle(other.author_handle),
+      author_display_name(other.author_display_name),
+      textBuf(other.textBuf) {
+    other.textBuf = nullptr;
+}
+*/
