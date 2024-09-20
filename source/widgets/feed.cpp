@@ -18,7 +18,7 @@ void Feed::reserve_more(size_t amount) {
     this->posts.reserve(this->posts.capacity() + amount);
 }
 
-void Feed::draw(float h_displacement, float scrollY) {
+void Feed::draw(float h_displacement, float scrollY, AssetPool *asset_pool) {
     float add = 0.0f;
     for (size_t i = 0; i < this->posts.size(); i++) {
         float screen_origin = -scrollY;
@@ -38,11 +38,13 @@ void Feed::draw(float h_displacement, float scrollY) {
 
         if (post_origin_inside_screen || post_end_inside_screen || screen_origin_inside_post || screen_end_inside_post) {
             if (!this->posts[i].visible) {
+                this->posts[i].on_enter(asset_pool);
                 this->posts[i].visible = true;
             }
             this->posts[i].draw(h_displacement, realYorigin, this->textBuf);
         } else {
             if (this->posts[i].visible) {
+                this->posts[i].on_exit(asset_pool);
                 this->posts[i].visible = false;
             }
         }

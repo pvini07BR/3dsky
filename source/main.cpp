@@ -2,17 +2,20 @@
 #include <stdio.h>
 #include <string>
 #include <malloc.h>
+#include <optional>
 
 #include <3ds.h>
 #include <citro2d.h>
 
 #include <curl/curl.h>
+#include "asset_pool.h"
 
 #include "defines.h"
 #include "curl_funcs.h"
 #include "widgets/feed.h"
 
 bool toggleConsole = false;
+bool loadedPosts = false;
 
 int main() {
     gfxInitDefault();
@@ -42,22 +45,12 @@ int main() {
     printf("Fetching posts from Discover feed...\n");
 
     Feed feed = Feed(0.5f);
+    
+    std::string feed_uri = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
+    //feed_uri = "at://did:plc:coqkaymd4t65envntucbpx2y/app.bsky.feed.generator/aaak7ypmzcdrq";
 
-    PostFetching pf;
-    pf.at_uri = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
-    pf.cursor = "";
-
-    pf.textBuf = feed.textBuf;
-    pf.posts = &feed.posts;
-    /*
-    LightEvent_Init(&pf.eventHandle, ResetType::RESET_ONESHOT);
-
-    s32 prio = 0;
-    svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-    Thread thread = threadCreate(get_posts, (void*)&pf, 4 * 1024, prio-1, -2, false);
-    */
-
-    get_posts(&pf);
+    std::string cursor = "";
+    get_posts(feed_uri, "", feed.textBuf, &feed.posts, &cursor);
 
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
@@ -81,7 +74,9 @@ int main() {
     C2D_Text loadingText;
     C2D_TextParse(&loadingText, textBuf, "Loading posts...");
     C2D_TextOptimize(&loadingText);
-    
+
+    AssetPool asset_pool = AssetPool();
+
     int16_t deltaTouch = 0;
     int frames = 0;
     while (aptMainLoop()) {
@@ -132,14 +127,20 @@ int main() {
             }
 
             if (scrollY < -feed.get_total_height() + SCREEN_HEIGHT) {
-                scrollVelY = 0.0f;
-                printf("Loading more posts...\n");
-                feed.reserve_more(50);
-                printf("%d\n", feed.posts.capacity());
-                get_posts(&pf);
+                if (!loadedPosts && !cursor.empty()) {
+                    printf("Loading more posts...\n");
+                    scrollVelY = 0.0f;
+                    feed.reserve_more(50);
+                    get_posts(feed_uri, cursor, feed.textBuf, &feed.posts, &cursor);
+                    loadedPosts = true;
+                }
 
                 if (scrollY < (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f) {
                     scrollY = (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f;
+                }
+            } else {
+                if (loadedPosts) {
+                    loadedPosts = false;
                 }
             }
         }
@@ -159,7 +160,7 @@ int main() {
 
             // Drawing on the top screen
 
-            feed.draw(SCREEN_TOP_BOTTOM_DIFF, scrollY + SCREEN_HEIGHT);
+            feed.draw(SCREEN_TOP_BOTTOM_DIFF, scrollY + SCREEN_HEIGHT, &asset_pool);
 
             C2D_DrawLine(SCREEN_TOP_BOTTOM_DIFF-0.5, 0.0, lineColor, SCREEN_TOP_BOTTOM_DIFF-0.5, SCREEN_HEIGHT, lineColor, 1.0, 0.0);
             C2D_DrawLine(SCREEN_TOP_BOTTOM_DIFF + BOTTOM_SCREEN_WIDTH, 0.0, lineColor, SCREEN_TOP_BOTTOM_DIFF + BOTTOM_SCREEN_WIDTH, SCREEN_HEIGHT, lineColor, 1.0, 0.0);
@@ -173,17 +174,12 @@ int main() {
 
         // Drawing on the bottom screen
 
-        feed.draw(0.0f, scrollY);
+        feed.draw(0.0f, scrollY, &asset_pool);
 
 		C3D_FrameEnd(0);
 
         frames++;
     }
-
-    //threadJoin(thread, U64_MAX);
-    //LightEvent_Clear(&pf.eventHandle);
-
-    //threadFree(thread);
     
     C2D_Fini();
 	C3D_Fini();

@@ -1,8 +1,11 @@
 #include "widgets/post.h"
 #include "c2d/text.h"
 #include "defines.h"
+#include "curl_funcs.h"
 #include <cmath>
 #include <cstdio>
+
+#define PFP_RES 32
 
 const float display_name_scale_factor = 1.5f;
 const float handle_scale_factor = 0.8f;
@@ -19,7 +22,7 @@ std::string wrap_text(C2D_TextBuf textBuf, std::string text, float text_scale)
 
         float t_width;
         C2D_TextGetDimensions(&tempText, text_scale, text_scale, &t_width, NULL);
-        if (t_width > BOTTOM_SCREEN_WIDTH) {
+        if ((t_width + PFP_RES + 10) > BOTTOM_SCREEN_WIDTH) {
             int n = wrapped_text.rfind(' ', i);
             if (n != -1) {
                 wrapped_text[n] = '\n';
@@ -34,13 +37,15 @@ std::string wrap_text(C2D_TextBuf textBuf, std::string text, float text_scale)
     return wrapped_text;
 }
 
-Post::Post(C2D_TextBuf textBuf, std::string text, std::string handle, std::string display_name, float text_scale) {
+Post::Post(C2D_TextBuf textBuf, std::string text, std::string handle, std::string display_name, std::string pfp_url, float text_scale) {
     // NOTE: The text buffer will be used here only for getting the proper post height.
 
     this->visible = false;
     this->text = text;
     this->author_handle = handle;
     this->author_display_name = display_name;
+    this->pfp_url = pfp_url;
+    this->pfp = nullptr;
 
     while (this->text.size() > MAX_POST_CHARACTERS) {
         this->text.erase(this->text.size()-1);
@@ -88,23 +93,22 @@ void Post::draw(float x, float y, C2D_TextBuf textBuf) {
         C2D_TextParse(&this->c2d_author_display_text, textBuf, this->author_display_name.c_str());
         C2D_TextOptimize(&this->c2d_author_display_text);
 
-        C2D_DrawText(&this->c2d_author_display_text, C2D_WithColor, x, y, 0.0, this->text_scale * display_name_scale_factor, this->text_scale * display_name_scale_factor, C2D_Color32(255, 255, 255, 255));
-        C2D_DrawText(&this->c2d_handle_text, C2D_WithColor, x + 5.0f + this->author_display_width, y + (author_handle_height/2.0), 0.0, this->text_scale * handle_scale_factor, this->text_scale * handle_scale_factor, C2D_Color32(128, 128, 128, 255));
-        C2D_DrawText(&c2d_text, C2D_WithColor, x, y + this->author_display_height, 0.0, this->text_scale, this->text_scale, C2D_Color32(255, 255, 255, 255));
+        C2D_DrawText(&this->c2d_author_display_text, C2D_WithColor, x + (PFP_RES + 10.0f), y, 0.0, this->text_scale * display_name_scale_factor, this->text_scale * display_name_scale_factor, C2D_Color32(255, 255, 255, 255));
+        C2D_DrawText(&this->c2d_handle_text, C2D_WithColor, x + (PFP_RES + 10.0f) + 5.0f + this->author_display_width, y + (author_handle_height/2.0), 0.0, this->text_scale * handle_scale_factor, this->text_scale * handle_scale_factor, C2D_Color32(128, 128, 128, 255));
+        C2D_DrawText(&c2d_text, C2D_WithColor, x + (PFP_RES + 10.0f), y + this->author_display_height, 0.0, this->text_scale, this->text_scale, C2D_Color32(255, 255, 255, 255));
     }
     C2D_DrawLine(x, y, lineColor, x + BOTTOM_SCREEN_WIDTH, y, lineColor, 1.0f, 0.0f);
     C2D_DrawLine(x, y+this->height, lineColor, x + BOTTOM_SCREEN_WIDTH, y+this->height, lineColor, 1.0f, 0.0f);
+
+    if (this->pfp != nullptr) {
+        C2D_DrawImageAt(*this->pfp, x + 5.0f, y + 6.0f, 0.0f);
+    }
 }
 
-/*
-Post::Post(Post&& other) noexcept
-    : text(std::move(other.text)),
-      text_scale(other.text_scale),
-      height(other.height),
-      c2d_text(other.c2d_text),
-      author_handle(other.author_handle),
-      author_display_name(other.author_display_name),
-      textBuf(other.textBuf) {
-    other.textBuf = nullptr;
+void Post::on_enter(AssetPool *asset_pool) {
+    this->pfp = asset_pool->get_image(this->pfp_url, PFP_RES, PFP_RES);
 }
-*/
+
+void Post::on_exit(AssetPool *asset_pool) {
+    this->pfp = nullptr;
+}
