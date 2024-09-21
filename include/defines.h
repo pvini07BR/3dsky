@@ -4,3 +4,5 @@
 #define SCREEN_HEIGHT 240
 
 #define SCREEN_TOP_BOTTOM_DIFF 40
+
+#define STACKSIZE (4 * 1024)

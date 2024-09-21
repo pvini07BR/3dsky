@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <citro2d.h>
 #include "asset_pool.h"
@@ -8,7 +9,7 @@
 
 class Post {
 public:
-    Post(C2D_TextBuf textBuf, std::string text, std::string handle, std::string display_name, std::string pfp_url, float text_scale);
+    Post(C2D_TextBuf textBuf, const char *text, const char *handle, const char *display_name, const char *pfp_url, float text_scale);
     ~Post();
 
     void draw(float x, float y, C2D_TextBuf textBuf);

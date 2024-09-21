@@ -10,8 +10,6 @@
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
 #include <stb_image_resize2.h>
 
-#define STACKSIZE (4 * 1024)
-
 static u32 next_pow2(u32 i)
 {
 	--i;
@@ -52,7 +50,7 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
 		url += "&cursor=" + cursor;
 	}
 
-    CURLcode statuscode = CURLcode::CURL_LAST;
+    CURLcode statuscode;
 	struct curl_slist *slist1 = NULL;
 	slist1 = curl_slist_append(slist1, "Accept: application/json");
   	slist1 = curl_slist_append(slist1, "Authorization: Bearer <TOKEN>");
@@ -88,7 +86,7 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
 
 				json_t *post_author = json_object_get(post_obj, "author");
 				json_t *post_record = json_object_get(post_obj, "record");
-				
+
 				posts->emplace_back(
 					textBuf,
 					json_string_value(json_object_get(post_record, "text")),
@@ -104,7 +102,7 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
 	} else {
         fprintf(stderr, "HTTP request returned %d: %s", statuscode, curl_easy_strerror(statuscode));
     }
-
+	
 	curl_easy_cleanup(hnd);
 	free(chunk.memory);
 	hnd = NULL;
@@ -121,7 +119,7 @@ std::optional<C2D_Image> get_image_from_url(std::string url, unsigned int width,
 	chunk.size = 0;
 
 	hnd = curl_easy_init();
-	curl_easy_setopt(hnd, CURLOPT_URL, url.c_str());
+	curl_easy_setopt(hnd, CURLOPT_URL, url);
 	curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
 	curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 	curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
@@ -139,6 +137,7 @@ std::optional<C2D_Image> get_image_from_url(std::string url, unsigned int width,
 		} else {
 			printf("Successfully loaded image.\n");
 			if (width > 0 && height > 0) {
+				stbi_image_free(img);	
 				img = stbir_resize_uint8_srgb(img, img_width, img_height, 0, nullptr, width, height, 0, STBIR_RGBA);
 			}
 			

@@ -17,6 +17,47 @@
 bool toggleConsole = false;
 bool loadedPosts = false;
 
+typedef struct LoadPostsData_t {
+    Handle action_event;
+    Handle exit_event;
+
+    void (*callback)();
+    std::string at_uri;
+    std::string cursor;
+    C2D_TextBuf textBuf;
+    std::vector<Post> *posts;
+    std::string *out_cursor;
+} LoadPostsData;
+
+Thread threadHandle;
+
+void postLoadingCallback() {
+    if (!loadedPosts) {
+        loadedPosts = true;
+    }
+}
+
+void threadMain(void *arg) {
+    LoadPostsData_t *data = (LoadPostsData_t*)arg;
+
+    Handle events[2] = { data->exit_event, data->action_event };
+    s32 reply_idx = -1;
+    Result res = 0xE7E3FFFF;
+
+	while(1) {
+        res = svcWaitSynchronizationN(&reply_idx, events, 2, false, -1);
+		if (R_FAILED(res)) svcBreak(USERBREAK_PANIC);
+
+        if (reply_idx) {
+            get_posts(data->at_uri, data->cursor, data->textBuf, data->posts, data->out_cursor);
+            data->callback();
+            continue;
+        }
+
+        break;
+	}
+}
+
 int main() {
     gfxInitDefault();
     if (toggleConsole) {
@@ -41,16 +82,27 @@ int main() {
     }
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
-
-    printf("Fetching posts from Discover feed...\n");
+    AssetPool asset_pool = AssetPool();
 
     Feed feed = Feed(0.5f);
-    
-    std::string feed_uri = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
-    //feed_uri = "at://did:plc:coqkaymd4t65envntucbpx2y/app.bsky.feed.generator/aaak7ypmzcdrq";
-
     std::string cursor = "";
-    get_posts(feed_uri, "", feed.textBuf, &feed.posts, &cursor);
+
+    LoadPostsData_t threadArgs;
+    
+    svcCreateEvent(&threadArgs.action_event, RESET_ONESHOT);
+    svcCreateEvent(&threadArgs.exit_event, RESET_ONESHOT);
+
+    threadArgs.at_uri = "at://did:plc:z72i7hdynmk6r22z27h6tvur/app.bsky.feed.generator/whats-hot";
+    threadArgs.cursor = "";
+    threadArgs.textBuf = feed.textBuf;
+    threadArgs.posts = &feed.posts,
+    threadArgs.out_cursor = &cursor;
+    threadArgs.callback = postLoadingCallback;
+
+    s32 prio = 0;
+	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
+	threadHandle = threadCreate(threadMain, (void*)&threadArgs, (6 * 1024), prio-1, -2, true);
+    svcSignalEvent(threadArgs.action_event);
 
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
@@ -75,10 +127,9 @@ int main() {
     C2D_TextParse(&loadingText, textBuf, "Loading posts...");
     C2D_TextOptimize(&loadingText);
 
-    AssetPool asset_pool = AssetPool();
-
     int16_t deltaTouch = 0;
     int frames = 0;
+
     while (aptMainLoop()) {
         hidScanInput();
 		if (hidKeysDown() & KEY_START) break;
@@ -127,20 +178,16 @@ int main() {
             }
 
             if (scrollY < -feed.get_total_height() + SCREEN_HEIGHT) {
-                if (!loadedPosts && !cursor.empty()) {
+                if (loadedPosts && !cursor.empty()) {
                     printf("Loading more posts...\n");
-                    scrollVelY = 0.0f;
                     feed.reserve_more(50);
-                    get_posts(feed_uri, cursor, feed.textBuf, &feed.posts, &cursor);
-                    loadedPosts = true;
+                    threadArgs.cursor = cursor;
+                    svcSignalEvent(threadArgs.action_event);
+                    loadedPosts = false;
                 }
 
                 if (scrollY < (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f) {
                     scrollY = (-feed.get_total_height() + SCREEN_HEIGHT) - 32.0f;
-                }
-            } else {
-                if (loadedPosts) {
-                    loadedPosts = false;
                 }
             }
         }
@@ -167,6 +214,11 @@ int main() {
 
             C2D_DrawRectSolid((float)TOP_SCREEN_WIDTH-5.0f, 0.0f, 0.0f, 5.0f, (float)SCREEN_HEIGHT, C2D_Color32(128, 128, 128, 128));
             C2D_DrawRectSolid((float)TOP_SCREEN_WIDTH-5.0f, -((scrollY/feed.get_total_height()) * (float)SCREEN_HEIGHT), 0.0f, 5.0f, 10.0f, C2D_Color32(128, 128, 128, 255));
+        
+            if (!loadedPosts) {
+                //C2D_DrawRectSolid(0.0f, 0.0f, 0.0f, (float)TOP_SCREEN_WIDTH, (float)SCREEN_HEIGHT, C2D_Color32(0, 0, 0, 128));
+                C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter, (float)TOP_SCREEN_WIDTH/2.0f, feed.get_total_height() + (scrollY + SCREEN_HEIGHT), 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
+            }
         }
 
         C2D_SceneBegin(bottom);
@@ -176,10 +228,20 @@ int main() {
 
         feed.draw(0.0f, scrollY, &asset_pool);
 
+        if (!loadedPosts) {
+            //C2D_DrawRectSolid(0.0f, 0.0f, 0.0f, (float)BOTTOM_SCREEN_WIDTH, (float)SCREEN_HEIGHT, C2D_Color32(0, 0, 0, 128));
+            C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter, (float)BOTTOM_SCREEN_WIDTH/2.0f, feed.get_total_height() + scrollY, 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
+        }
+
 		C3D_FrameEnd(0);
 
         frames++;
     }
+
+    svcSignalEvent(threadArgs.exit_event);
+    threadJoin(threadHandle, U64_MAX);
+    svcCloseHandle(threadArgs.action_event);
+    svcCloseHandle(threadArgs.exit_event);
     
     C2D_Fini();
 	C3D_Fini();

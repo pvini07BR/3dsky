@@ -37,9 +37,8 @@ std::string wrap_text(C2D_TextBuf textBuf, std::string text, float text_scale)
     return wrapped_text;
 }
 
-Post::Post(C2D_TextBuf textBuf, std::string text, std::string handle, std::string display_name, std::string pfp_url, float text_scale) {
+Post::Post(C2D_TextBuf textBuf, const char *text, const char *handle, const char *display_name, const char *pfp_url, float text_scale) {
     // NOTE: The text buffer will be used here only for getting the proper post height.
-
     this->visible = false;
     this->text = text;
     this->author_handle = handle;
@@ -106,9 +105,9 @@ void Post::draw(float x, float y, C2D_TextBuf textBuf) {
 }
 
 void Post::on_enter(AssetPool *asset_pool) {
-    this->pfp = asset_pool->get_image(this->pfp_url, PFP_RES, PFP_RES);
+    //asset_pool->get_image(this->pfp_url, &this->pfp, PFP_RES, PFP_RES);
 }
 
 void Post::on_exit(AssetPool *asset_pool) {
-    this->pfp = nullptr;
+
 }
