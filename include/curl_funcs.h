@@ -11,4 +11,4 @@ struct MemoryStruct {
 };
 
 void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std::vector<Post> *posts, std::string *out_cursor);
-std::optional<C2D_Image> get_image_from_url(std::string url, unsigned int width = 0, unsigned int height = 0);
+std::optional<C2D_Image> get_image_from_url(const char* url, unsigned int width = 0, unsigned int height = 0);

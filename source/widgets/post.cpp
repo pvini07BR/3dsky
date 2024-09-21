@@ -105,9 +105,9 @@ void Post::draw(float x, float y, C2D_TextBuf textBuf) {
 }
 
 void Post::on_enter(AssetPool *asset_pool) {
-    //asset_pool->get_image(this->pfp_url, &this->pfp, PFP_RES, PFP_RES);
+    asset_pool->get_image(this->pfp_url.c_str(), &this->pfp, PFP_RES, PFP_RES);
 }
 
 void Post::on_exit(AssetPool *asset_pool) {
-
+    //asset_pool->remove_from_queue(this->pfp_url.c_str());
 }

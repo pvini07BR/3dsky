@@ -110,20 +110,27 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
 	slist1 = NULL;
 }
 
-std::optional<C2D_Image> get_image_from_url(std::string url, unsigned int width, unsigned int height) {
-	CURLcode ret;
-	CURL *hnd;
+std::optional<C2D_Image> get_image_from_url(const char* url, unsigned int width, unsigned int height) {
+	if (url == nullptr || strlen(url) == 0) {
+		printf("URL is nullptr or empty. Aborting!\n");
+		return std::nullopt;
+	}
 
 	struct MemoryStruct chunk;
 	chunk.memory = (char*)malloc(1);
 	chunk.size = 0;
 
-	hnd = curl_easy_init();
+	CURL *hnd = curl_easy_init();
+	if (hnd == nullptr) {
+		printf("Failed to create cURL Handle. Aborting!\n");
+		return std::nullopt;
+	}
+
 	curl_easy_setopt(hnd, CURLOPT_URL, url);
 	curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
 	curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 	curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
-	ret = curl_easy_perform(hnd);
+	CURLcode ret = curl_easy_perform(hnd);
 
 	if (ret == CURLE_OK) {
 		int img_width, img_height, n_channels;
@@ -135,7 +142,6 @@ std::optional<C2D_Image> get_image_from_url(std::string url, unsigned int width,
 			hnd = NULL;
 			return std::nullopt;
 		} else {
-			printf("Successfully loaded image.\n");
 			if (width > 0 && height > 0) {
 				stbi_image_free(img);	
 				img = stbir_resize_uint8_srgb(img, img_width, img_height, 0, nullptr, width, height, 0, STBIR_RGBA);

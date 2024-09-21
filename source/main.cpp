@@ -14,13 +14,12 @@
 #include "curl_funcs.h"
 #include "widgets/feed.h"
 
-bool toggleConsole = false;
+bool toggleConsole = true;
 bool loadedPosts = false;
 
 typedef struct LoadPostsData_t {
     Handle action_event;
     Handle exit_event;
-    ThreadTaskType task_type;
 
     void (*callback)();
     std::string at_uri;
@@ -38,7 +37,7 @@ void postLoadingCallback() {
     }
 }
 
-void threadMain(void *arg) {
+void postLoadingThread(void *arg) {
     LoadPostsData_t *data = (LoadPostsData_t*)arg;
 
     Handle events[2] = { data->exit_event, data->action_event };
@@ -50,16 +49,9 @@ void threadMain(void *arg) {
 		if (R_FAILED(res)) svcBreak(USERBREAK_PANIC);
 
         if (reply_idx) {
-            switch (data->task_type) {
-                case LOAD_POSTS:
-                    get_posts(data->at_uri, data->cursor, data->textBuf, data->posts, data->out_cursor);
-                    data->callback();
-                    break;
-                case LOAD_IMAGE:
-                    break;
-                default:
-                    break;
-            }
+            printf("Loading posts...\n");
+            get_posts(data->at_uri, data->cursor, data->textBuf, data->posts, data->out_cursor);
+            data->callback();
             continue;
         }
 
@@ -107,11 +99,10 @@ int main() {
     threadArgs.posts = &feed.posts,
     threadArgs.out_cursor = &cursor;
     threadArgs.callback = postLoadingCallback;
-    threadArgs.task_type = LOAD_POSTS;
 
     s32 prio = 0;
 	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
-	threadHandle = threadCreate(threadMain, (void*)&threadArgs, (6 * 1024), prio-1, -2, true);
+	threadHandle = threadCreate(postLoadingThread, (void*)&threadArgs, (6 * 1024), prio-1, -2, true);
     svcSignalEvent(threadArgs.action_event);
 
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
@@ -189,7 +180,6 @@ int main() {
 
             if (scrollY < -feed.get_total_height() + SCREEN_HEIGHT) {
                 if (loadedPosts && !cursor.empty()) {
-                    printf("Loading more posts...\n");
                     feed.reserve_more(50);
                     threadArgs.cursor = cursor;
                     svcSignalEvent(threadArgs.action_event);
