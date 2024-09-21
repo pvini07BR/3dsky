@@ -20,6 +20,7 @@ bool loadedPosts = false;
 typedef struct LoadPostsData_t {
     Handle action_event;
     Handle exit_event;
+    ThreadTaskType task_type;
 
     void (*callback)();
     std::string at_uri;
@@ -49,8 +50,16 @@ void threadMain(void *arg) {
 		if (R_FAILED(res)) svcBreak(USERBREAK_PANIC);
 
         if (reply_idx) {
-            get_posts(data->at_uri, data->cursor, data->textBuf, data->posts, data->out_cursor);
-            data->callback();
+            switch (data->task_type) {
+                case LOAD_POSTS:
+                    get_posts(data->at_uri, data->cursor, data->textBuf, data->posts, data->out_cursor);
+                    data->callback();
+                    break;
+                case LOAD_IMAGE:
+                    break;
+                default:
+                    break;
+            }
             continue;
         }
 
@@ -98,6 +107,7 @@ int main() {
     threadArgs.posts = &feed.posts,
     threadArgs.out_cursor = &cursor;
     threadArgs.callback = postLoadingCallback;
+    threadArgs.task_type = LOAD_POSTS;
 
     s32 prio = 0;
 	svcGetThreadPriority(&prio, CUR_THREAD_HANDLE);
@@ -216,7 +226,6 @@ int main() {
             C2D_DrawRectSolid((float)TOP_SCREEN_WIDTH-5.0f, -((scrollY/feed.get_total_height()) * (float)SCREEN_HEIGHT), 0.0f, 5.0f, 10.0f, C2D_Color32(128, 128, 128, 255));
         
             if (!loadedPosts) {
-                //C2D_DrawRectSolid(0.0f, 0.0f, 0.0f, (float)TOP_SCREEN_WIDTH, (float)SCREEN_HEIGHT, C2D_Color32(0, 0, 0, 128));
                 C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter, (float)TOP_SCREEN_WIDTH/2.0f, feed.get_total_height() + (scrollY + SCREEN_HEIGHT), 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
             }
         }
@@ -229,7 +238,6 @@ int main() {
         feed.draw(0.0f, scrollY, &asset_pool);
 
         if (!loadedPosts) {
-            //C2D_DrawRectSolid(0.0f, 0.0f, 0.0f, (float)BOTTOM_SCREEN_WIDTH, (float)SCREEN_HEIGHT, C2D_Color32(0, 0, 0, 128));
             C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter, (float)BOTTOM_SCREEN_WIDTH/2.0f, feed.get_total_height() + scrollY, 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
         }
 
