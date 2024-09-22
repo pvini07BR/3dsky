@@ -4,10 +4,11 @@
 #include <vector>
 #include <string>
 #include <optional>
+#include "stb_image.h"
 
-struct MemoryStruct {
-	char *memory;
-	size_t size;
+struct FixedMemory {
+	void *memory;
+	size_t byte_size;
 };
 
 void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std::vector<Post> *posts, std::string *out_cursor);

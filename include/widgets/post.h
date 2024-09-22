@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <citro2d.h>
 #include "asset_pool.h"
@@ -13,8 +14,8 @@ public:
     ~Post();
 
     void draw(float x, float y, C2D_TextBuf textBuf);
-    void on_enter(AssetPool *asset_pool);
-    void on_exit(AssetPool *asset_pool);
+    void on_enter();
+    void on_exit();
 
     std::string text;
     std::string wrapped_text;
@@ -22,7 +23,7 @@ public:
     std::string author_handle;
     std::string pfp_url;
 
-    C2D_Image* pfp;
+    std::optional<C2D_Image> pfp;
 
     float author_display_width;
     float author_display_height;

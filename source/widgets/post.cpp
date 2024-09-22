@@ -43,8 +43,15 @@ Post::Post(C2D_TextBuf textBuf, const char *text, const char *handle, const char
     this->text = text;
     this->author_handle = handle;
     this->author_display_name = display_name;
+    this->pfp = std::nullopt;
     this->pfp_url = pfp_url;
-    this->pfp = nullptr;
+
+    // Replace "avatar" in the URL to avatar_thumbnail so it will only get a lower resolution version of the pfp
+    std::string replace_word = "avatar";
+    size_t pos = this->pfp_url.find("avatar");
+    if (pos != std::string::npos) {
+        this->pfp_url.replace(pos, replace_word.size(), "avatar_thumbnail");
+    }
 
     while (this->text.size() > MAX_POST_CHARACTERS) {
         this->text.erase(this->text.size()-1);
@@ -69,7 +76,7 @@ Post::Post(C2D_TextBuf textBuf, const char *text, const char *handle, const char
 
     C2D_TextGetDimensions(&this->c2d_handle_text, this->text_scale * handle_scale_factor, this->text_scale * handle_scale_factor, nullptr, &this->author_handle_height);
 
-    this->height = text_height + author_display_height;
+    this->height = text_height + author_display_height + 5.0f;
 
     C2D_TextBufClear(textBuf);
 }
@@ -99,15 +106,22 @@ void Post::draw(float x, float y, C2D_TextBuf textBuf) {
     C2D_DrawLine(x, y, lineColor, x + BOTTOM_SCREEN_WIDTH, y, lineColor, 1.0f, 0.0f);
     C2D_DrawLine(x, y+this->height, lineColor, x + BOTTOM_SCREEN_WIDTH, y+this->height, lineColor, 1.0f, 0.0f);
 
-    if (this->pfp != nullptr) {
-        C2D_DrawImageAt(*this->pfp, x + 5.0f, y + 6.0f, 0.0f);
+    if (this->pfp.has_value()) {
+        C2D_DrawImageAt(this->pfp.value(), x + 5.0f, y + 6.0f, 0.0f);
     }
 }
 
-void Post::on_enter(AssetPool *asset_pool) {
-    asset_pool->get_image(this->pfp_url.c_str(), &this->pfp, PFP_RES, PFP_RES);
+void Post::on_enter() {
+    this->pfp = get_image_from_url(this->pfp_url.c_str(), PFP_RES, PFP_RES);
 }
 
-void Post::on_exit(AssetPool *asset_pool) {
-    //asset_pool->remove_from_queue(this->pfp_url.c_str());
+void Post::on_exit() {
+    if (this->pfp.has_value()) {
+        C3D_TexDelete(this->pfp.value().tex);
+        delete this->pfp.value().tex;
+        delete this->pfp.value().subtex;
+        this->pfp.value().tex = nullptr;
+        this->pfp.value().subtex = nullptr;
+        this->pfp = std::nullopt;
+    }
 }

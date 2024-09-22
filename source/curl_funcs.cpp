@@ -2,6 +2,8 @@
 
 #include <curl/curl.h>
 #include <cstring>
+#include <iostream>
+#include <chrono>
 #include <jansson.h>
 #include <3ds.h>
 //#define STBI_FAILURE_USERMSG
@@ -23,24 +25,39 @@ static u32 next_pow2(u32 i)
 	return i;
 }
 
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
+size_t write_data_placeholder(void *buffer, size_t size, size_t nmemb, void *userp)
 {
-    size_t realsize = size * nmemb;
-	struct MemoryStruct *mem = (struct MemoryStruct *)userp;
+   return size * nmemb;
+}
 
-	char *ptr = (char*)realloc(mem->memory, mem->size + realsize + 1);
-	if(!ptr) {
-	/* out of memory! */
-	fprintf(stderr, "not enough memory (realloc returned NULL)\n");
-	return 0;
-	}
+size_t fixed_memory_write_callback(void *buffer, size_t size, size_t nmemb, void *userp) {
+	size_t realsize = size * nmemb;
+	struct FixedMemory *mem = (struct FixedMemory *)userp;
 
-	mem->memory = ptr;
-	memcpy(&(mem->memory[mem->size]), contents, realsize);
-	mem->size += realsize;
-	mem->memory[mem->size] = 0;
+	memcpy(mem->memory + mem->byte_size, buffer, realsize);
+	mem->byte_size += realsize;
 
 	return realsize;
+}
+
+curl_off_t get_download_size(const char* url)
+{
+  CURL *curl = curl_easy_init();
+  if (curl) {
+	CURLcode res;
+	curl_easy_setopt(curl, CURLOPT_URL, url);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data_placeholder);
+	res = curl_easy_perform(curl);
+	if (!res) {
+		curl_off_t cl;
+      	res = curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD_T, &cl);
+		return cl;
+	} else {
+		return -1;
+	}
+  } else {
+	return -1;
+  }
 }
 
 void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std::vector<Post> *posts, std::string *out_cursor)
@@ -50,21 +67,23 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
 		url += "&cursor=" + cursor;
 	}
 
+	size_t download_size = get_download_size(url.c_str());
+
     CURLcode statuscode;
 	struct curl_slist *slist1 = NULL;
 	slist1 = curl_slist_append(slist1, "Accept: application/json");
   	slist1 = curl_slist_append(slist1, "Authorization: Bearer <TOKEN>");
 
-    struct MemoryStruct chunk;
-	chunk.memory = (char*)malloc(1);
-	chunk.size = 0;
+    struct FixedMemory mem;
+	mem.memory = malloc(download_size);
+	mem.byte_size = 0;
 
     CURL *hnd = curl_easy_init();
 	if (hnd) {
 		curl_easy_setopt(hnd, CURLOPT_URL, url.c_str());
 		curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
-		curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-		curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
+		curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, fixed_memory_write_callback);
+		curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void*)&mem);
 
 		statuscode = curl_easy_perform(hnd);
 	} else {
@@ -73,7 +92,7 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
 
     if (statuscode == CURLE_OK) {
 		json_error_t error;
-		json_t *root = json_loads(chunk.memory, 0, &error);
+		json_t *root = json_loads((const char*)mem.memory, 0, &error);
 		if (!root) {
 			fprintf(stderr, "Error parsing string at line %d: %s\n", error.line, error.text);
 		} else {
@@ -104,21 +123,20 @@ void get_posts(std::string at_uri, std::string cursor, C2D_TextBuf textBuf, std:
     }
 	
 	curl_easy_cleanup(hnd);
-	free(chunk.memory);
+	free(mem.memory);
 	hnd = NULL;
 	curl_slist_free_all(slist1);
 	slist1 = NULL;
 }
 
 std::optional<C2D_Image> get_image_from_url(const char* url, unsigned int width, unsigned int height) {
+	auto start = std::chrono::high_resolution_clock::now();
+	size_t download_size = get_download_size(url);
+
 	if (url == nullptr || strlen(url) == 0) {
 		printf("URL is nullptr or empty. Aborting!\n");
 		return std::nullopt;
 	}
-
-	struct MemoryStruct chunk;
-	chunk.memory = (char*)malloc(1);
-	chunk.size = 0;
 
 	CURL *hnd = curl_easy_init();
 	if (hnd == nullptr) {
@@ -126,24 +144,27 @@ std::optional<C2D_Image> get_image_from_url(const char* url, unsigned int width,
 		return std::nullopt;
 	}
 
+	struct FixedMemory imgmem;
+	imgmem.memory = (stbi_uc*)malloc(download_size);
+	imgmem.byte_size = 0;
+
 	curl_easy_setopt(hnd, CURLOPT_URL, url);
 	curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
-	curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-	curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
+	curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, fixed_memory_write_callback);
+	curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&imgmem);
 	CURLcode ret = curl_easy_perform(hnd);
 
 	if (ret == CURLE_OK) {
 		int img_width, img_height, n_channels;
-		unsigned char *img = stbi_load_from_memory((const stbi_uc*)chunk.memory, chunk.size, &img_width, &img_height, &n_channels, 4);
+		unsigned char *img = stbi_load_from_memory((stbi_uc*)imgmem.memory, imgmem.byte_size, &img_width, &img_height, &n_channels, 4);
 		if (img == nullptr) {
 			fprintf(stderr, "Failed to load image: %s\n", stbi_failure_reason());
-			free(chunk.memory);
+			free(imgmem.memory);
 			curl_easy_cleanup(hnd);
 			hnd = NULL;
 			return std::nullopt;
 		} else {
 			if (width > 0 && height > 0) {
-				stbi_image_free(img);	
 				img = stbir_resize_uint8_srgb(img, img_width, img_height, 0, nullptr, width, height, 0, STBIR_RGBA);
 			}
 			
@@ -188,15 +209,18 @@ std::optional<C2D_Image> get_image_from_url(const char* url, unsigned int width,
 			}
 			
 			stbi_image_free(img);
-			free(chunk.memory);
+			free(imgmem.memory);
 			curl_easy_cleanup(hnd);
 			hnd = NULL;
 
+			auto stop = std::chrono::high_resolution_clock::now();
+			auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+			std::cout << "Image downloading took " << duration.count() << " seconds.\n";
 			return c2d_img;
 		}
 	} else {
 		fprintf(stderr, "HTTP request returned %d: %s\n", ret, curl_easy_strerror(ret));
-		free(chunk.memory);
+		free(imgmem.memory);
 		curl_easy_cleanup(hnd);
 		hnd = NULL;
 

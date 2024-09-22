@@ -83,7 +83,7 @@ int main() {
     }
 
     curl_global_init(CURL_GLOBAL_DEFAULT);
-    AssetPool asset_pool = AssetPool();
+    //AssetPool asset_pool = AssetPool();
 
     Feed feed = Feed(0.5f);
     std::string cursor = "";
@@ -207,7 +207,7 @@ int main() {
 
             // Drawing on the top screen
 
-            feed.draw(SCREEN_TOP_BOTTOM_DIFF, scrollY + SCREEN_HEIGHT, &asset_pool);
+            feed.draw(SCREEN_TOP_BOTTOM_DIFF, scrollY + SCREEN_HEIGHT);
 
             C2D_DrawLine(SCREEN_TOP_BOTTOM_DIFF-0.5, 0.0, lineColor, SCREEN_TOP_BOTTOM_DIFF-0.5, SCREEN_HEIGHT, lineColor, 1.0, 0.0);
             C2D_DrawLine(SCREEN_TOP_BOTTOM_DIFF + BOTTOM_SCREEN_WIDTH, 0.0, lineColor, SCREEN_TOP_BOTTOM_DIFF + BOTTOM_SCREEN_WIDTH, SCREEN_HEIGHT, lineColor, 1.0, 0.0);
@@ -225,7 +225,7 @@ int main() {
 
         // Drawing on the bottom screen
 
-        feed.draw(0.0f, scrollY, &asset_pool);
+        feed.draw(0.0f, scrollY);
 
         if (!loadedPosts) {
             C2D_DrawText(&loadingText, C2D_WithColor | C2D_AlignCenter, (float)BOTTOM_SCREEN_WIDTH/2.0f, feed.get_total_height() + scrollY, 0.0f, 1.0f, 1.0f, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
